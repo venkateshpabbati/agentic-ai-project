@@ -13,12 +13,3 @@ faiss-cpu #==1.7.2
 
 # Streamlit for web apps
 streamlit #==1.9.0
-
-# langchain
-# langgraph
-# langchain_community
-# langchain_core
-# langchain_groq
-# langchain_openai
-# faiss-cpu
-# streamlit
