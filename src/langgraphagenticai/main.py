@@ -13,21 +13,47 @@ def load_langgraph_agenticai_app():
     """
     Main entry point for LangGraph AgenticAI Assistant.
     
-    This function orchestrates the entire application workflow:
+    This function orchestrates the entire application workflow with security and privacy considerations:
     1. Initializes the Streamlit UI for user interaction
-    2. Processes user input and messages
-    3. Configures and initializes the LLM model
-    4. Sets up and executes graph-based agent workflows
-    5. Displays results and handles responses
+    2. Processes user input and messages with sanitization
+    3. Configures and initializes the LLM model with security checks
+    4. Sets up and executes graph-based agent workflows with monitoring
+    5. Displays results and handles responses with privacy controls
+    
+    Security Features:
+    - Input validation and sanitization
+    - Rate limiting
+    - Session management
+    - Error handling with privacy considerations
+    - Logging with PII masking
     
     Returns:
         None
     
     Raises:
         ValueError: If there's a critical failure in application execution
+        SecurityError: If security checks fail
     """
     try:
-        # Initialize UI components
+        # Initialize security context
+        if not _validate_security_context():
+            st.error("Security error: Invalid security context")
+            return
+
+        # Initialize UI components with security settings
+        ui = LoadStreamlitUI()
+        
+        # Apply rate limiting
+        if not _check_rate_limit():
+            st.error("Rate limit exceeded. Please wait before trying again.")
+            return
+
+        # Initialize session security
+        if not _initialize_session_security():
+            st.error("Failed to initialize session security")
+            return
+
+        # Initialize UI components with security settings
         ui = LoadStreamlitUI()
         
         # Load initial UI configuration
