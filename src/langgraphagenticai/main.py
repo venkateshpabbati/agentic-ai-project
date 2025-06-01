@@ -6,6 +6,14 @@ from src.langgraphagenticai.LLMS.groqllm import GroqLLM
 from src.langgraphagenticai.graph.graph_builder import GraphBuilder
 from src.langgraphagenticai.ui.streamlitui.display_result import DisplayResultStreamlit
 from src.langgraphagenticai.state.logger import Logger
+from src.langgraphagenticai.security.security_manager import SecurityManager
+from typing import TypeVar
+
+T = TypeVar('T')
+
+class SecurityError(Exception):
+    """Custom exception for security-related errors."""
+    pass
 
 logger = Logger()
 
@@ -35,33 +43,24 @@ def load_langgraph_agenticai_app():
         SecurityError: If security checks fail
     """
     try:
-        # Initialize security context
-        if not _validate_security_context():
-            st.error("Security error: Invalid security context")
-            return
-
-        # Initialize UI components with security settings
-        ui = LoadStreamlitUI()
+        # Initialize security manager
+        security_manager = SecurityManager()
         
-        # Apply rate limiting
-        if not _check_rate_limit():
-            st.error("Rate limit exceeded. Please wait before trying again.")
-            return
+        # Initialize session
+        if not security_manager.initialize_session():
+            raise SecurityError("Failed to initialize session")
+        
+        # Check rate limiting
+        if not security_manager.check_rate_limit():
+            raise SecurityError("Rate limit exceeded")
 
-        # Initialize session security
-        if not _initialize_session_security():
-            st.error("Failed to initialize session security")
-            return
-
-        # Initialize UI components with security settings
+        # Initialize UI components
         ui = LoadStreamlitUI()
         
         # Load initial UI configuration
         user_input = ui.load_streamlit_ui()
         if not user_input:
-            st.error("Error: Failed to load UI configuration")
-            logger.error("Failed to load UI configuration")
-            return
+            raise ValueError("Failed to load UI configuration")
 
         # Initialize chat input
         user_message = None
@@ -71,51 +70,57 @@ def load_langgraph_agenticai_app():
             user_message = st.chat_input("Enter your message:")
 
         if user_message:
+            # Validate and sanitize input
+            sanitized_message = security_manager.validate_input(user_message)
+            if not sanitized_message:
+                raise SecurityError("Invalid input detected")
+
             try:
                 # Configure LLM
                 llm_config = GroqLLM(user_controls_input=user_input)
                 model = llm_config.get_llm_model()
                 
                 if not model:
-                    st.error("Error: Failed to initialize LLM model")
-                    logger.error("LLM model initialization failed")
-                    return
+                    raise ValueError("Failed to initialize LLM model")
 
                 # Get selected use case
                 usecase = user_input.get('selected_usecase')
                 if not usecase:
-                    st.error("Error: No use case selected")
-                    logger.error("No use case selected")
-                    return
+                    raise ValueError("No use case selected")
 
                 # Build and execute graph
                 graph_builder = GraphBuilder(model)
                 try:
                     graph = graph_builder.setup_graph(usecase)
                     if not graph:
-                        st.error("Error: Failed to build graph")
-                        logger.error("Graph setup failed")
-                        return
+                        raise ValueError("Failed to build graph")
 
                     # Display results
-                    result_display = DisplayResultStreamlit(usecase, graph, user_message)
+                    result_display = DisplayResultStreamlit(usecase, graph, sanitized_message)
                     result_display.display_result_on_ui()
-                    logger.info(f"Successfully processed message: {user_message}")
+                    logger.info(f"Successfully processed message: {sanitized_message}")
 
                 except Exception as graph_error:
-                    st.error(f"Error: Graph setup failed - {str(graph_error)}")
                     logger.error(f"Graph setup failed: {str(graph_error)}")
-                    return
+                    raise ValueError(f"Graph setup failed: {str(graph_error)}")
 
             except Exception as llm_error:
-                st.error(f"Error: LLM processing failed - {str(llm_error)}")
                 logger.error(f"LLM processing failed: {str(llm_error)}")
-                return
+                raise ValueError(f"LLM processing failed: {str(llm_error)}")
 
+    except SecurityError as se:
+        st.error(f"Security Error: {str(se)}")
+        logger.error(f"Security violation: {str(se)}")
+        return
+    
     except Exception as e:
         st.error(f"Critical Error: Application failed - {str(e)}")
         logger.critical(f"Application failed: {str(e)}")
         raise ValueError(f"Application failed with exception: {str(e)}")
 
 if __name__ == "__main__":
-    load_langgraph_agenticai_app()
+    try:
+        load_langgraph_agenticai_app()
+    except Exception as e:
+        logger.critical(f"Application startup failed: {str(e)}")
+        st.error(f"Application startup failed: {str(e)}")

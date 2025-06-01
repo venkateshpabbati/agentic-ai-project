@@ -5,3 +5,4 @@
 2025-05-31 23:53:36,548 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
 2025-05-31 23:53:40,849 - INFO - HTTP Request: POST https://api.groq.com/openai/v1/chat/completions "HTTP/1.1 200 OK"
 2025-05-31 23:53:40,858 - INFO - Successfully processed message: what more can you do with tavily?
+2025-06-01 00:06:26,332 - CRITICAL - Application failed: name '_validate_security_context' is not defined
